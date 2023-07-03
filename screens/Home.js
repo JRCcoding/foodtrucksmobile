@@ -21,12 +21,8 @@ export default function Home() {
 
       let location = await Location.getCurrentPositionAsync({})
       setLocation(location)
-      if (errorMsg) {
-        lat = errorMsg
-      } else if (location) {
-        setLat(JSON.stringify(location.coords.latitude))
-        setLong(JSON.stringify(location.coords.longitude))
-      }
+      setLat(JSON.stringify(location.coords.latitude))
+      setLong(JSON.stringify(location.coords.longitude))
     })()
   }, [])
 
@@ -49,24 +45,20 @@ export default function Home() {
         style={styles.button}
         onPress={() => signOut(auth)}
       />
-      {location ? (
+      {long ? (
         // <Map />
         <MapView
           style={styles.map}
           initialRegion={{
-            latitude: 31.9499832,
-            longitude: -102.1687033,
+            latitude: parseFloat(lat),
+            longitude: parseFloat(long),
             latitudeDelta: 0.0922,
             longitudeDelta: 0.0421,
           }}
         />
       ) : (
-        <Text>Allow location permissions</Text>
+        <Text>Loading...</Text>
       )}
-
-      <Text>
-        {lat}, {long}
-      </Text>
     </View>
   )
 }
