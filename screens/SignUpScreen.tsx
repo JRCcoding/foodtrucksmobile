@@ -1,5 +1,6 @@
 import { StackScreenProps } from '@react-navigation/stack';
 import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { addDoc, collection, getFirestore } from 'firebase/firestore';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button, Input } from 'react-native-elements';
@@ -17,7 +18,25 @@ const SignUpScreen: React.FC<StackScreenProps<any>> = ({ navigation }) => {
 
   const auth = getAuth();
 
-
+  const db = getFirestore();
+  // useEffect(() => {
+      
+  //           const newUser = {
+  //             email: value.email,
+  //             location: 'test',
+  //           }
+  //           addDoc(collection(db, 'users'), newUser)
+  // .then((docRef) => {
+  //   console.log('Document written with ID: ', docRef.id);
+  //   // Handle success or perform any additional operations here
+  // })
+  // .catch((error) => {
+  //   console.error('Error adding document: ', error);
+  //   // Handle error here
+  // });
+          
+        
+  // }, [])
   async function signUp() {
     if (value.email === '' || value.password === '') {
       setValue({
@@ -28,7 +47,13 @@ const SignUpScreen: React.FC<StackScreenProps<any>> = ({ navigation }) => {
     }
   
     try {
-      await createUserWithEmailAndPassword(auth, value.email, value.password);
+      const {user} = await createUserWithEmailAndPassword(auth, value.email, value.password);
+      const userRef = collection(db, 'users');
+      await addDoc(userRef, {
+        uid: user.uid,
+        email: user.email,
+        location: {},
+      })
       navigation.navigate('Sign In');
     } catch (error) {
       setValue({
