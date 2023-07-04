@@ -6,7 +6,7 @@ import { Button } from 'react-native-elements';
 const WelcomeScreen: React.FC<StackScreenProps<any>> = ({ navigation }) => {
   return (
     <View style={styles.container}>
-      <Text>Login in to get more customers!</Text>
+      <Text>Log in to get more customers now!</Text>
 
       <View style={styles.buttons}>
         <Button title="Sign in" buttonStyle={styles.button} onPress={() => navigation.navigate('Sign In')} />
