@@ -1,4 +1,3 @@
-import { useNavigation } from '@react-navigation/native'
 import * as Location from 'expo-location'
 import { getAuth } from 'firebase/auth'
 import {
@@ -11,11 +10,12 @@ import {
 } from 'firebase/firestore'
 import React, { useEffect, useState } from 'react'
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
-import { Button, Icon } from 'react-native-elements'
-import MapView, { Marker } from 'react-native-maps'
+import { Button, Icon, Input } from 'react-native-elements'
+import MapView, { MarkerAnimated } from 'react-native-maps'
 import { useAuthentication } from '../utils/hooks/useAuthentication'
 
 export default function Home() {
+  const [modalVisible, setModalVisible] = useState(false)
   const [location, setLocation] = useState(null)
   const [lat, setLat] = useState(null)
   const [long, setLong] = useState(null)
@@ -24,8 +24,10 @@ export default function Home() {
   const { user } = useAuthentication()
   const auth = getAuth()
   const [refreshing, setRefreshing] = useState(false)
-  const [allLive, setAllLive] = useState()
-  const [modalVisible, setModalVisible] = useState(false)
+  const db = getFirestore()
+  const [live, setLive] = useState(false)
+  const [lastActiveTime, setLastActiveTime] = useState(null) // Add lastActiveTime state
+  const [userInfo, setUserInfo] = useState()
 
   useEffect(() => {
     ;(async () => {
@@ -42,32 +44,9 @@ export default function Home() {
       setIsLoading(false)
     })()
   }, [])
-  const db = getFirestore()
 
   useEffect(() => {
     if (user && lat && long) {
-      // const updateFirebaseLocation = async (userId, latitude, longitude) => {
-      //   console.log('Current user in updateFirebaseLocation:', user)
-      //   console.log('Current user uid in updateFirebaseLocation:', user?.uid)
-
-      //   const userRef = doc(db, 'users', userId)
-      //   console.log(user.uid)
-
-      //   try {
-      //     await updateDoc(userRef, {
-      //       location: {
-      //         latitude,
-      //         longitude,
-      //       },
-      //     })
-      //     console.log('User location updated successfully!')
-      //   } catch (error) {
-      //     console.error('Error updating user location:', error)
-      //   }
-      // }
-
-      // updateFirebaseLocation(user.uid, lat, long)
-
       const updateFirebaseLocation = async (uid, latitude, longitude) => {
         const usersCollectionRef = collection(db, 'users')
 
@@ -87,13 +66,13 @@ export default function Home() {
                 latitude,
                 longitude,
               },
+              lastActiveTime: new Date(), // Update lastActiveTime when updating location
             })
 
-            //Throw in to check and see if user is owner
             const userData = userDoc.data()
-            const owner = userData.owner
-            setOwnerStatus(owner)
-
+            setUserInfo(userDoc.data())
+            const live = userData.live
+            setLive(live)
             console.log('User location updated successfully!')
           } else {
             console.log('User not found with the specified uid.')
@@ -106,44 +85,88 @@ export default function Home() {
       updateFirebaseLocation(user.uid, lat, long)
     }
   }, [user, lat, long])
+
   useEffect(() => {
-    const handleAllLive = async () => {
-      const usersCollectionRef = collection(db, 'users')
-      // const q = query(usersCollectionRef, where('owner', '==', true))
-      const q = query(usersCollectionRef, where('live', '==', true))
-      try {
-        const querySnapshot = await getDocs(q)
+    if (user) {
+      const checkUserStatus = async (uid) => {
+        const usersCollectionRef = collection(db, 'users')
 
-        if (!querySnapshot.empty) {
-          const userDocs = querySnapshot.docs
-          const liveTrucks = userDocs.map((doc) => ({
-            location: doc.data().location,
-            truckName: doc.data().truckName,
-            lastActiveTime: doc.data().lastActiveTime,
-          }))
+        // Create a query to find the user document with matching uid
+        const q = query(usersCollectionRef, where('uid', '==', uid))
 
-          setAllLive(liveTrucks)
-          console.log(allLive)
-          console.log('User location updated successfully!')
-        } else {
-          console.log('User not found with the specified uid.')
+        try {
+          const querySnapshot = await getDocs(q)
+
+          // Assuming thereis only one user document with the given uid
+          if (!querySnapshot.empty) {
+            const userDoc = querySnapshot.docs[0]
+            const userData = userDoc.data()
+            const live = userData.live
+            const lastActiveTime = userData.lastActiveTime
+
+            // Check if the user was active within the last 2 hours
+            const twoHoursAgo = new Date()
+            twoHoursAgo.setHours(twoHoursAgo.getHours() - 2)
+
+            if (
+              live &&
+              lastActiveTime &&
+              lastActiveTime.toDate() > twoHoursAgo
+            ) {
+              setLive(true)
+            } else {
+              setLive(false)
+            }
+          } else {
+            console.log('User not found with the specified uid.')
+          }
+        } catch (error) {
+          console.error('Error checking user status:', error)
         }
-      } catch (error) {
-        console.error('Error updating user location:', error)
       }
+
+      checkUserStatus(user.uid)
     }
+  }, [user])
 
-    handleAllLive()
-  }, [])
+  const handleGoLive = async () => {
+    const usersCollectionRef = collection(db, 'users')
+    const q = query(usersCollectionRef, where('uid', '==', user.uid))
+    try {
+      const querySnapshot = await getDocs(q)
 
-  const [ownerStatus, setOwnerStatus] = useState(null)
-  const navigation = useNavigation()
+      // Assuming there's only one user document with the given uid
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0]
+        function formatDate(date) {
+          const options = {
+            month: '2-digit',
+            day: '2-digit',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true,
+            timeZone: 'America/Chicago',
+          }
+          return date.toLocaleString('en-US', options)
+        }
 
-  useEffect(() => {
-    if (ownerStatus === true) {
-      navigation.navigate('Dashboard')
+        const currentDate = new Date()
+        const formattedDate = formatDate(currentDate)
+        console.log(formattedDate)
+        // Update the location field of the user document
+        await updateDoc(userDoc.ref, {
+          live: !live,
+          lastActiveTime: new Date(), // Update lastActiveTime when changing live status
+        })
+        setLive(!live)
+        console.log('User location updated successfully!')
+      } else {
+        console.log('User not found with the specified uid.')
+      }
+    } catch (error) {
+      console.error('Error updating user location:', error)
     }
-  }, [ownerStatus, navigation])
+  }
 
   const signOut = async () => {
     try {
@@ -201,6 +224,30 @@ export default function Home() {
 
     return formattedTimestamp
   }
+  const [newName, setNewName] = useState()
+  const handleNameChange = async (newName) => {
+    const usersCollectionRef = collection(db, 'users')
+    const q = query(usersCollectionRef, where('uid', '==', user.uid))
+    try {
+      const querySnapshot = await getDocs(q)
+
+      // Assuming there's only one user document with the given uid
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0]
+
+        // Update the location field of the user document
+        await updateDoc(userDoc.ref, {
+          truckName: newName,
+        })
+        setLive(!live)
+        console.log('Name updated!')
+      } else {
+        console.log('User not found with the specified uid.')
+      }
+    } catch (error) {
+      console.error('Error updating truck name:', error)
+    }
+  }
   return (
     <View style={styles.container}>
       <Text>Welcome {user?.email}!</Text>
@@ -214,42 +261,39 @@ export default function Home() {
       {refreshing && <Text>Refreshing...</Text>}
 
       {!isLoading ? (
-        <>
-          <MapView
-            style={styles.map}
-            initialRegion={{
-              latitude: lat,
-              longitude: long,
-              latitudeDelta: 0.0922,
-              longitudeDelta: 0.0421,
-            }}
-          >
-            {allLive?.map((marker, index) => (
-              <Marker
-                key={marker.truckName}
-                coordinate={{
-                  latitude: marker.location.latitude,
-                  longitude: marker.location.longitude,
-                }}
-                title={marker.truckName}
-              />
-            ))}
-          </MapView>
-          <Button
-            title='Nearby Food Trucks'
-            style={styles.button}
-            onPress={() => setModalVisible(!modalVisible)}
-          />
-        </>
+        <MapView
+          style={styles.map}
+          initialRegion={{
+            latitude: lat,
+            longitude: long,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          }}
+        >
+          {live && (
+            <MarkerAnimated
+              coordinate={{
+                latitude: lat,
+                longitude: long,
+              }}
+              title='Your Food Truck'
+            />
+          )}
+        </MapView>
       ) : (
         <View>
           <Button
-            title='Load Map'
+            title='Refresh'
             style={styles.button}
             onPress={handleRefresh}
           />
         </View>
       )}
+      <Button
+        title='Edit Info'
+        style={styles.button}
+        onPress={() => setModalVisible(true)}
+      />
       <Modal
         animationType='fade'
         transparent={true}
@@ -268,26 +312,37 @@ export default function Home() {
                 <Icon name='close' />
               </Text>
             </Pressable>
-            <View>
-              {allLive?.map((truck) => (
-                <>
-                  <Text key={truck.truckNames} style={styles.truckNames}>
-                    {' '}
-                    {/* <Icon name='circle' /> */}
-                    {truck.truckName}
-                  </Text>
-                  <Text
-                    style={{ marginLeft: '10%', marginBottom: '20%' }}
-                    key={truck.lastActiveTime}
-                  >
-                    Live since: {formatTimestamp(truck.lastActiveTime)}
-                  </Text>
-                </>
-              ))}
-            </View>
+            <Text style={styles.truckTitle}>{userInfo?.truckName}</Text>
+            <Input value={newName} onChangeText={setNewName} />
+            {/* <Button onPress={() => handleNameChange(newName)} /> */}
+            <Button onPress={() => handleNameChange(newName)} />
           </View>
         </View>
       </Modal>
+      <Button
+        title={live ? 'Go offline' : 'Go LIVE!'}
+        style={styles.button}
+        onPress={handleGoLive}
+      />
+      <Text>
+        {live ? (
+          <Icon name='circle' color='green' />
+        ) : (
+          <Icon name='circle' color='red' />
+        )}
+        {live && 'Live Since:'}
+        {live ? (
+          userInfo && userInfo.lastActiveTime ? (
+            <Text style={{ marginLeft: '10%', marginBottom: '20%' }}>
+              {formatTimestamp(userInfo.lastActiveTime)}
+            </Text>
+          ) : (
+            'Not available'
+          )
+        ) : (
+          'Not live!'
+        )}
+      </Text>
     </View>
   )
 }
@@ -301,10 +356,6 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 10,
-  },
-  map: {
-    width: '80%',
-    height: '50%',
   },
   buttonClose: {
     marginLeft: 'auto',
@@ -335,13 +386,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+    width: '75%',
   },
   modalText: {
     marginBottom: 15,
     textAlign: 'center',
-  },
-  truckNames: {
-    fontSize: 25,
-    fontWeight: 'bold',
   },
 })
