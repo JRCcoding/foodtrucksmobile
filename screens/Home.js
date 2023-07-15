@@ -269,17 +269,14 @@ export default function Home() {
               </Text>
             </Pressable>
             <View>
-              {allLive?.map((truck) => (
+              {allLive?.map((truck, index) => (
                 <>
-                  <Text key={truck.truckNames} style={styles.truckNames}>
+                  <Text key={index} style={styles.truckNames}>
                     {' '}
                     {/* <Icon name='circle' /> */}
                     {truck.truckName}
                   </Text>
-                  <Text
-                    style={{ marginLeft: '10%', marginBottom: '20%' }}
-                    key={truck.lastActiveTime}
-                  >
+                  <Text style={{ marginLeft: '10%', marginBottom: '20%' }}>
                     Live since: {formatTimestamp(truck.lastActiveTime)}
                   </Text>
                 </>

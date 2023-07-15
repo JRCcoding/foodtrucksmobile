@@ -2,6 +2,7 @@ import * as Location from 'expo-location'
 import { getAuth } from 'firebase/auth'
 import {
   collection,
+  doc,
   getDocs,
   getFirestore,
   query,
@@ -88,16 +89,35 @@ export default function Home() {
 
   useEffect(() => {
     if (user) {
-      const checkUserStatus = async (uid) => {
+      const updateLivePropertyForOwners = async () => {
+        const usersCollectionRef = collection(db, 'users')
+
+        try {
+          // Create a query to find all user documents with owner === true
+          const q = query(usersCollectionRef, where('owner', '==', true))
+          const querySnapshot = await getDocs(q)
+
+          // Update the live property for each user
+          querySnapshot.forEach(async (userDoc) => {
+            const userRef = doc(db, 'users', userDoc.id)
+            await updateDoc(userRef, { live: false })
+          })
+
+          console.log('Live property updated for all owners.')
+        } catch (error) {
+          console.error('Error updating live property:', error)
+        }
+      }
+      const checkUserStatus = async () => {
         const usersCollectionRef = collection(db, 'users')
 
         // Create a query to find the user document with matching uid
-        const q = query(usersCollectionRef, where('uid', '==', uid))
+        const q = query(usersCollectionRef, where('owner', '==', true))
 
         try {
           const querySnapshot = await getDocs(q)
 
-          // Assuming thereis only one user document with the given uid
+          // Assuming there is only one user document with the given uid
           if (!querySnapshot.empty) {
             const userDoc = querySnapshot.docs[0]
             const userData = userDoc.data()
@@ -106,16 +126,17 @@ export default function Home() {
 
             // Check if the user was active within the last 2 hours
             const twoHoursAgo = new Date()
-            twoHoursAgo.setHours(twoHoursAgo.getHours() - 2)
+            twoHoursAgo.setHours(twoHoursAgo.getHours() - 4)
 
             if (
               live &&
               lastActiveTime &&
               lastActiveTime.toDate() > twoHoursAgo
             ) {
-              setLive(true)
-            } else {
               setLive(false)
+            } else {
+              // Update the live property for all owners
+              await updateLivePropertyForOwners()
             }
           } else {
             console.log('User not found with the specified uid.')
@@ -125,9 +146,9 @@ export default function Home() {
         }
       }
 
-      checkUserStatus(user.uid)
+      checkUserStatus()
     }
-  }, [user])
+  }, [])
 
   const handleGoLive = async () => {
     const usersCollectionRef = collection(db, 'users')
@@ -224,8 +245,8 @@ export default function Home() {
 
     return formattedTimestamp
   }
-  const [newName, setNewName] = useState()
-  const handleNameChange = async (newName) => {
+  const [newNumber, setNewNumber] = useState()
+  const handleNumberChange = async (newNumber) => {
     const usersCollectionRef = collection(db, 'users')
     const q = query(usersCollectionRef, where('uid', '==', user.uid))
     try {
@@ -237,15 +258,14 @@ export default function Home() {
 
         // Update the location field of the user document
         await updateDoc(userDoc.ref, {
-          truckName: newName,
+          truckNumber: newNumber,
         })
-        setLive(!live)
-        console.log('Name updated!')
+        console.log('Number updated!')
       } else {
         console.log('User not found with the specified uid.')
       }
     } catch (error) {
-      console.error('Error updating truck name:', error)
+      console.error('Error updating truck number:', error)
     }
   }
   return (
@@ -313,9 +333,20 @@ export default function Home() {
               </Text>
             </Pressable>
             <Text style={styles.truckTitle}>{userInfo?.truckName}</Text>
-            <Input value={newName} onChangeText={setNewName} />
-            {/* <Button onPress={() => handleNameChange(newName)} /> */}
-            <Button onPress={() => handleNameChange(newName)} />
+            <Text>PHONE: {userInfo?.truckNumber}</Text>
+            <View style={{ flexDirection: 'row' }}>
+              <Input
+                country='US'
+                value={newNumber}
+                onChangeText={setNewNumber}
+                style={{ textAlign: 'center' }}
+              />
+              {/* <Button onPress={() => handleNameChange(newName)} /> */}
+              <Button
+                title='Update Phone'
+                onPress={() => handleNumberChange(newNumber)}
+              />
+            </View>
           </View>
         </View>
       </Modal>
@@ -376,7 +407,7 @@ const styles = StyleSheet.create({
     margin: 20,
     backgroundColor: 'white',
     borderRadius: 20,
-    padding: 35,
+    padding: 65,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {
@@ -391,5 +422,9 @@ const styles = StyleSheet.create({
   modalText: {
     marginBottom: 15,
     textAlign: 'center',
+  },
+  truckTitle: {
+    fontSize: 21,
+    marginBottom: '15%',
   },
 })
