@@ -10,9 +10,17 @@ const Stack = createStackNavigator()
 export default function UserStack() {
   return (
     <NavigationContainer>
-      <Stack.Navigator>
+      <Stack.Navigator
+        screenOptions={{
+          headerBackTitleVisible: false,
+        }}
+      >
         <Stack.Screen name='Food Trucks Mobile' component={HomeScreen} />
-        <Stack.Screen name='Dashboard' component={OwnerHomeScreen} />
+        <Stack.Screen
+          name='Dashboard'
+          options={{ headerBackTitleVisible: false }}
+          component={OwnerHomeScreen}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   )

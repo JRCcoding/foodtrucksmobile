@@ -5,13 +5,17 @@ import React from 'react'
 import BusinessSignUpScreen from '../screens/BusinessSignUpScreen.tsx'
 import SignInScreen from '../screens/SignInScreen.tsx'
 import SignUpScreen from '../screens/SignUpScreen.tsx'
-import WelcomeScreen from '../screens/Welcome.tsx'
+import WelcomeScreen from '../screens/Welcome.js'
 const Stack = createStackNavigator()
 
 export default function AuthStack() {
   return (
     <NavigationContainer>
-      <Stack.Navigator>
+      <Stack.Navigator
+        screenOptions={{
+          headerBackTitleVisible: false,
+        }}
+      >
         <Stack.Screen name='Food Trucks Mobile' component={WelcomeScreen} />
         <Stack.Screen name='Sign In' component={SignInScreen} />
         <Stack.Screen name='Sign Up' component={SignUpScreen} />

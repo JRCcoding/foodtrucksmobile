@@ -1,8 +1,8 @@
 import 'dotenv/config'
 export default {
   expo: {
-    name: 'foodtrucksexpo',
-    slug: 'foodtrucksexpo',
+    name: 'foodtrucksmobile',
+    slug: 'foodtrucksmobile',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
