@@ -3,10 +3,10 @@ import * as Location from 'expo-location'
 import { getAuth } from 'firebase/auth'
 import {
   collection,
-  doc,
   getDocs,
   getFirestore,
   query,
+  setDoc,
   updateDoc,
   where,
 } from 'firebase/firestore'
@@ -30,6 +30,7 @@ export default function Home() {
   const [live, setLive] = useState(false)
   const [userInfo, setUserInfo] = useState()
   const [liveTime, setLiveTime] = useState()
+  const [liveTill, setLiveTill] = useState()
   const pickerRef = useRef()
 
   function open() {
@@ -63,152 +64,129 @@ export default function Home() {
         // Create a query to find the user document with matching uid
         const q = query(usersCollectionRef, where('uid', '==', uid))
 
-        try {
-          const querySnapshot = await getDocs(q)
+        // try {
+        const querySnapshot = await getDocs(q)
 
-          // Assuming there's only one user document with the given uid
-          if (!querySnapshot.empty) {
-            const userDoc = querySnapshot.docs[0]
+        // Assuming there's only one user document with the given uid
+        if (!querySnapshot.empty) {
+          const userDoc = querySnapshot.docs[0]
 
-            // Update the location field of the user document
-            await updateDoc(userDoc.ref, {
-              location: {
-                latitude,
-                longitude,
-              },
-            })
+          // Update the location field of the user document
+          await updateDoc(userDoc.ref, {
+            location: {
+              latitude,
+              longitude,
+            },
+          })
 
-            const userData = userDoc.data()
-            setUserInfo(userDoc.data())
-            const live = userData?.live
-            setLive(live)
-            console.log('User location updated successfully!')
-          } else {
-            console.log('User not found with the specified uid.')
-          }
-        } catch (error) {
-          console.error('Error updating user location:', error)
+          const userData = userDoc.data()
+          setUserInfo(userDoc.data())
+          const live = userData?.live
+          setLive(live)
+          console.log('User location updated successfully!')
+        } else {
+          console.log('User not found with the specified uid.')
         }
+        // }
+        // catch (error) {
+        //   console.error('Error updating user location:', error)
+        // }
       }
 
       updateFirebaseLocation(user.uid, lat, long)
     }
   }, [user, lat, long])
 
-  useEffect(() => {
-    if (user) {
-      const updateLivePropertyForOwners = async () => {
-        const usersCollectionRef = collection(db, 'users')
+  // For seperate server to check if users should still be online or not
+  // useEffect(() => {
+  //   if (user) {
+  //     const updateLivePropertyForOwners = async () => {
+  //       const usersCollectionRef = collection(db, 'users')
 
-        try {
-          // Create a query to find all user documents with owner === true
-          const q = query(usersCollectionRef, where('owner', '==', true))
-          const querySnapshot = await getDocs(q)
+  //       try {
+  //         // Create a query to find all user documents with owner === true
+  //         const q = query(usersCollectionRef, where('owner', '==', true))
+  //         const querySnapshot = await getDocs(q)
 
-          // Update the live property for each user
-          querySnapshot.forEach(async (userDoc) => {
-            const userRef = doc(db, 'users', userDoc.id)
-            await updateDoc(userRef, { live: false })
-          })
+  //         // Update the live property for each user
+  //         querySnapshot.forEach(async (userDoc) => {
+  //           const userRef = doc(db, 'users', userDoc.id)
+  //           await updateDoc(userRef, { live: false })
+  //         })
 
-          console.log('Live property updated for all owners.')
-        } catch (error) {
-          console.error('Error updating live property:', error)
-        }
-      }
-      const checkUserStatus = async () => {
-        const usersCollectionRef = collection(db, 'users')
+  //         console.log('Live property updated for all owners.')
+  //       } catch (error) {
+  //         console.error('Error updating live property:', error)
+  //       }
+  //     }
+  //     const checkUserStatus = async () => {
+  //       const usersCollectionRef = collection(db, 'users')
 
-        // Create a query to find the user document with matching uid
-        const q = query(usersCollectionRef, where('owner', '==', true))
+  //       // Create a query to find the user document with matching uid
+  //       const q = query(usersCollectionRef, where('owner', '==', true))
 
-        try {
-          const querySnapshot = await getDocs(q)
+  //       try {
+  //         const querySnapshot = await getDocs(q)
 
-          // Assuming there is only one user document with the given uid
-          if (!querySnapshot.empty) {
-            const userDoc = querySnapshot.docs[0]
-            const userData = userDoc.data()
-            const live = userData.live
-            const lastActiveTime = userData.lastActiveTime
+  //         // Assuming there is only one user document with the given uid
+  //         if (!querySnapshot.empty) {
+  //           const userDoc = querySnapshot.docs[0]
+  //           const userData = userDoc.data()
+  //           const live = userData.live
+  //           const lastActiveTime = userData.lastActiveTime
 
-            // Check if the user was active within the last 2 hours
-            const twoHoursAgo = new Date()
-            twoHoursAgo.setHours(twoHoursAgo.getHours() - 4)
+  //           // Check if the user was active within the last 2 hours
+  //           const twoHoursAgo = new Date()
+  //           twoHoursAgo.setHours(twoHoursAgo.getHours() - 4)
 
-            if (
-              live &&
-              lastActiveTime &&
-              lastActiveTime.toDate() > twoHoursAgo
-            ) {
-              setLive(false)
-            } else {
-              // Update the live property for all owners
-              await updateLivePropertyForOwners()
-            }
-          } else {
-            console.log('User not found with the specified uid.')
-          }
-        } catch (error) {
-          console.error('Error checking user status:', error)
-        }
-      }
+  //           if (
+  //             live &&
+  //             lastActiveTime &&
+  //             lastActiveTime.toDate() > twoHoursAgo
+  //           ) {
+  //             setLive(false)
+  //           } else {
+  //             // Update the live property for all owners
+  //             await updateLivePropertyForOwners()
+  //           }
+  //         } else {
+  //           console.log('User not found with the specified uid.')
+  //         }
+  //       } catch (error) {
+  //         console.error('Error checking user status:', error)
+  //       }
+  //     }
 
-      checkUserStatus()
+  //     checkUserStatus()
+  //   }
+  // }, [])
+  function addTimes(time1, time2) {
+    // Helper function to convert time string to minutes since midnight
+    const timeToMinutes = (time) => {
+      const [hours, minutes] = time.split(/:| /)
+      let totalMinutes = parseInt(hours % 12) * 60 + parseInt(minutes)
+
+      return totalMinutes
     }
-  }, [])
 
-  const handleGoLive = async () => {
-    if (!liveTime && !live) {
-      alert('Must choose how long you think you will be active')
-      return
-    }
+    const totalMinutes1 = timeToMinutes(time1)
+    const totalMinutes2 = timeToMinutes(time2)
 
-    const usersCollectionRef = collection(db, 'users')
-    const q = query(usersCollectionRef, where('uid', '==', user.uid))
-    try {
-      const querySnapshot = await getDocs(q)
+    // Add the minutes together
+    let sumMinutes = totalMinutes1 + totalMinutes2
 
-      // Assuming there's only one user document with the given uid
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0]
-        function formatDate(date) {
-          const options = {
-            month: '2-digit',
-            day: '2-digit',
-            hour: 'numeric',
-            minute: 'numeric',
-            hour12: true,
-            timeZone: 'America/Chicago',
-          }
-          return date.toLocaleString('en-US', options)
-        }
+    // Calculate the result time in "hh:mm AM/PM" format
+    const sumHours = Math.floor(sumMinutes / 60) % 12
+    const sumMinutesRemainder = sumMinutes % 60
+    const ampm = sumMinutes >= 720 ? 'PM' : 'AM'
 
-        const currentDate = new Date()
-        const formattedDate = formatDate(currentDate)
-        console.log(formattedDate)
-        // Update the location field of the user document
-        await updateDoc(userDoc.ref, {
-          live: !live,
-          lastActiveTime: new Date(), // Update lastActiveTime when changing live status
-        })
-        setLive(!live)
-        console.log('User location updated successfully!')
-      } else {
-        console.log('User not found with the specified uid.')
-      }
-    } catch (error) {
-      console.error('Error updating user location:', error)
-    }
+    // Format the result with leading zeros
+    const resultTime = `${String(sumHours).padStart(2, '0')}:${String(
+      sumMinutesRemainder
+    ).padStart(2, '0')} ${ampm}`
+
+    return resultTime
   }
-  const signOut = async () => {
-    try {
-      await auth.signOut()
-    } catch (error) {
-      console.log(error)
-    }
-  }
-
   const handleRefresh = async () => {
     setRefreshing(true)
     setLocation(null)
@@ -238,6 +216,77 @@ export default function Home() {
     }
 
     setRefreshing(false)
+  }
+
+  const handleGoLive = async () => {
+    if (!liveTime && !live) {
+      alert('Must choose how long you think you will be active')
+      return
+    }
+
+    const usersCollectionRef = collection(db, 'users')
+    const q = query(usersCollectionRef, where('uid', '==', user.uid))
+    try {
+      const querySnapshot = await getDocs(q)
+
+      // Assuming there's only one user document with the given uid
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0]
+        function formatDate(date) {
+          const options = {
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true,
+            timeZone: 'America/Chicago',
+          }
+          return date.toLocaleString('en-US', options)
+        }
+
+        const currentDate = new Date()
+        const formattedDate = formatDate(currentDate)
+        console.log(formattedDate)
+
+        // Update the location field of the user document
+        if (!live) {
+          setLiveTill(addTimes(formattedDate, liveTime))
+          await updateDoc(userDoc.ref, {
+            live: !live,
+            lastActiveTime: formattedDate,
+
+            //possibly update an 'endTime' here
+          })
+          await setDoc(
+            userDoc.ref,
+            {
+              liveUntil: liveTill,
+            },
+            { merge: true }
+          )
+        } else {
+          await updateDoc(userDoc.ref, {
+            live: !live,
+            lastActiveTime: formattedDate,
+            liveUntil: '',
+
+            //possibly update an 'endTime' here
+          })
+        }
+        setLive(!live)
+        console.log('User location updated successfully!')
+        handleRefresh()
+      } else {
+        console.log('User not found with the specified uid.')
+      }
+    } catch (error) {
+      console.error('Error updating user location:', error)
+    }
+  }
+  const signOut = async () => {
+    try {
+      await auth.signOut()
+    } catch (error) {
+      console.log(error)
+    }
   }
 
   const formatTimestamp = (firebaseTimestamp) => {
@@ -282,7 +331,8 @@ export default function Home() {
   return (
     <View style={styles.container}>
       <View style={styles.welcome}>
-        <Text style={styles.welcomename}>{userInfo?.truckName}!</Text>
+        <Text style={styles.welcomename}>{userInfo?.truckName}</Text>
+        <Button title='Refresh' style={styles.button} onPress={handleRefresh} />
         <View style={styles.signoutbutton}>
           <Button title='Sign Out' onPress={() => signOut(auth)} />
         </View>
@@ -377,6 +427,21 @@ export default function Home() {
               <Picker.Item key='3:30' label='3:30' value='3:30' />
               <Picker.Item key='4:00' label='4:00' value='4:00' />
               <Picker.Item key='4:30' label='4:30' value='4:30' />
+              <Picker.Item key='5:00' label='5:00' value='5:00' />
+              <Picker.Item key='5:30' label='5:30' value='5:30' />
+              <Picker.Item key='6:00' label='6:00' value='6:00' />
+              <Picker.Item key='6:30' label='6:30' value='6:30' />
+              <Picker.Item key='7:00' label='7:00' value='7:00' />
+              <Picker.Item key='7:30' label='7:30' value='7:30' />
+              <Picker.Item key='8:00' label='8:00' value='8:00' />
+              <Picker.Item key='8:30' label='8:30' value='8:30' />
+              <Picker.Item key='9:00' label='9:00' value='9:00' />
+              <Picker.Item key='9:30' label='9:30' value='9:30' />
+              <Picker.Item key='10:00' label='10:00' value='10:00' />
+              <Picker.Item key='10:30' label='10:30' value='10:30' />
+              <Picker.Item key='11:00' label='11:00' value='11:00' />
+              <Picker.Item key='11:30' label='11:30' value='11:30' />
+              <Picker.Item key='12:00' label='12:00' value='12:00' />
             </Picker>
           </View>
         </View>
@@ -388,17 +453,17 @@ export default function Home() {
           style={styles.button}
           onPress={handleGoLive}
         />
+        {live ? (
+          <Icon name='circle' color='green' />
+        ) : (
+          <Icon name='circle' color='red' />
+        )}
         <Text>
-          {live ? (
-            <Icon name='circle' color='green' />
-          ) : (
-            <Icon name='circle' color='red' />
-          )}
           {live && 'Live Since:'}
           {live ? (
             userInfo && userInfo.lastActiveTime ? (
               <Text style={{ marginLeft: '10%', marginBottom: '20%' }}>
-                {formatTimestamp(userInfo?.lastActiveTime)}
+                {userInfo?.lastActiveTime}
               </Text>
             ) : (
               <Text style={{ marginLeft: '10%', marginBottom: '20%' }}>
@@ -416,11 +481,9 @@ export default function Home() {
             </Text>
           )}
         </Text>
+
+        <Text>{live && `Live Until: ${userInfo?.liveUntil}`}</Text>
       </View>
-      <Text>
-        {/* {live && endingTime && <Text>Live Until: {endingTime}</Text>}
-        {live && !endingTime && <Text></Text>} */}
-      </Text>
     </View>
   )
 }
@@ -490,7 +553,7 @@ const styles = StyleSheet.create({
   livecontainer: {
     width: '50%',
     display: 'flex',
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
