@@ -97,69 +97,6 @@ export default function Home() {
     }
   }, [user, lat, long])
 
-  // For seperate server to check if users should still be online or not
-  // useEffect(() => {
-  //   if (user) {
-  //     const updateLivePropertyForOwners = async () => {
-  //       const usersCollectionRef = collection(db, 'users')
-
-  //       try {
-  //         // Create a query to find all user documents with owner === true
-  //         const q = query(usersCollectionRef, where('owner', '==', true))
-  //         const querySnapshot = await getDocs(q)
-
-  //         // Update the live property for each user
-  //         querySnapshot.forEach(async (userDoc) => {
-  //           const userRef = doc(db, 'users', userDoc.id)
-  //           await updateDoc(userRef, { live: false })
-  //         })
-
-  //         console.log('Live property updated for all owners.')
-  //       } catch (error) {
-  //         console.error('Error updating live property:', error)
-  //       }
-  //     }
-  //     const checkUserStatus = async () => {
-  //       const usersCollectionRef = collection(db, 'users')
-
-  //       // Create a query to find the user document with matching uid
-  //       const q = query(usersCollectionRef, where('owner', '==', true))
-
-  //       try {
-  //         const querySnapshot = await getDocs(q)
-
-  //         // Assuming there is only one user document with the given uid
-  //         if (!querySnapshot.empty) {
-  //           const userDoc = querySnapshot.docs[0]
-  //           const userData = userDoc.data()
-  //           const live = userData.live
-  //           const lastActiveTime = userData.lastActiveTime
-
-  //           // Check if the user was active within the last 2 hours
-  //           const twoHoursAgo = new Date()
-  //           twoHoursAgo.setHours(twoHoursAgo.getHours() - 4)
-
-  //           if (
-  //             live &&
-  //             lastActiveTime &&
-  //             lastActiveTime.toDate() > twoHoursAgo
-  //           ) {
-  //             setLive(false)
-  //           } else {
-  //             // Update the live property for all owners
-  //             await updateLivePropertyForOwners()
-  //           }
-  //         } else {
-  //           console.log('User not found with the specified uid.')
-  //         }
-  //       } catch (error) {
-  //         console.error('Error checking user status:', error)
-  //       }
-  //     }
-
-  //     checkUserStatus()
-  //   }
-  // }, [])
   function addTimes(time1, time2) {
     // Helper function to convert time string to minutes since midnight
     const timeToMinutes = (time) => {
@@ -220,7 +157,7 @@ export default function Home() {
 
   const handleGoLive = async () => {
     if (!liveTime && !live) {
-      alert('Must choose how long you think you will be active')
+      alert('Choose how long you will be on location')
       return
     }
 
@@ -245,31 +182,30 @@ export default function Home() {
         const currentDate = new Date()
         const formattedDate = formatDate(currentDate)
         console.log(formattedDate)
+        setLiveTill(addTimes(formattedDate, liveTime))
 
         // Update the location field of the user document
         if (!live) {
-          setLiveTill(addTimes(formattedDate, liveTime))
-          await updateDoc(userDoc.ref, {
-            live: !live,
-            lastActiveTime: formattedDate,
-
-            //possibly update an 'endTime' here
-          })
           await setDoc(
+            // Use await to ensure the state update completes before the next operation.
             userDoc.ref,
             {
-              liveUntil: liveTill,
+              live: !live,
+              lastActiveTime: formattedDate,
+              liveUntil: liveTill, // Use liveTill directly here, as it should have the updated value.
             },
             { merge: true }
           )
         } else {
-          await updateDoc(userDoc.ref, {
-            live: !live,
-            lastActiveTime: formattedDate,
-            liveUntil: '',
-
-            //possibly update an 'endTime' here
-          })
+          await setDoc(
+            userDoc.ref,
+            {
+              live: !live,
+              lastActiveTime: '',
+              liveUntil: '',
+            },
+            { merge: true }
+          )
         }
         setLive(!live)
         console.log('User location updated successfully!')

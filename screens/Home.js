@@ -10,7 +10,15 @@ import {
   where,
 } from 'firebase/firestore'
 import React, { useEffect, useState } from 'react'
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import {
+  Linking,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native'
 import { Button, Icon } from 'react-native-elements'
 import MapView, { Marker } from 'react-native-maps'
 import { useAuthentication } from '../utils/hooks/useAuthentication'
@@ -46,41 +54,13 @@ export default function Home() {
 
   useEffect(() => {
     if (user && lat && long) {
-      // const updateFirebaseLocation = async (userId, latitude, longitude) => {
-      //   console.log('Current user in updateFirebaseLocation:', user)
-      //   console.log('Current user uid in updateFirebaseLocation:', user?.uid)
-
-      //   const userRef = doc(db, 'users', userId)
-      //   console.log(user.uid)
-
-      //   try {
-      //     await updateDoc(userRef, {
-      //       location: {
-      //         latitude,
-      //         longitude,
-      //       },
-      //     })
-      //     console.log('User location updated successfully!')
-      //   } catch (error) {
-      //     console.error('Error updating user location:', error)
-      //   }
-      // }
-
-      // updateFirebaseLocation(user.uid, lat, long)
-
       const updateFirebaseLocation = async (uid, latitude, longitude) => {
         const usersCollectionRef = collection(db, 'users')
-
-        // Create a query to find the user document with matching uid
         const q = query(usersCollectionRef, where('uid', '==', uid))
-
         try {
           const querySnapshot = await getDocs(q)
-
-          // Assuming there's only one user document with the given uid
           if (!querySnapshot.empty) {
             const userDoc = querySnapshot.docs[0]
-
             // Update the location field of the user document
             await updateDoc(userDoc.ref, {
               location: {
@@ -88,12 +68,10 @@ export default function Home() {
                 longitude,
               },
             })
-
             //Throw in to check and see if user is owner
             const userData = userDoc.data()
             const owner = userData.owner
             setOwnerStatus(owner)
-
             console.log('User location updated successfully!')
           } else {
             console.log('User not found with the specified uid.')
@@ -106,33 +84,33 @@ export default function Home() {
       updateFirebaseLocation(user.uid, lat, long)
     }
   }, [user, lat, long])
-  useEffect(() => {
-    const handleAllLive = async () => {
-      const usersCollectionRef = collection(db, 'users')
-      // const q = query(usersCollectionRef, where('owner', '==', true))
-      const q = query(usersCollectionRef, where('live', '==', true))
-      try {
-        const querySnapshot = await getDocs(q)
+  const handleAllLive = async () => {
+    const usersCollectionRef = collection(db, 'users')
+    const q = query(usersCollectionRef, where('live', '==', true))
+    try {
+      const querySnapshot = await getDocs(q)
 
-        if (!querySnapshot.empty) {
-          const userDocs = querySnapshot.docs
-          const liveTrucks = userDocs.map((doc) => ({
-            location: doc.data().location,
-            truckName: doc.data().truckName,
-            lastActiveTime: doc.data().lastActiveTime,
-          }))
+      if (!querySnapshot.empty) {
+        const userDocs = querySnapshot.docs
+        const liveTrucks = userDocs.map((doc) => ({
+          location: doc.data().location,
+          truckName: doc.data().truckName,
+          lastActiveTime: doc.data().lastActiveTime,
+          liveUntil: doc.data().liveUntil,
+          truckNumber: doc.data().truckNumber,
+        }))
 
-          setAllLive(liveTrucks)
-          console.log(allLive)
-          console.log('User location updated successfully!')
-        } else {
-          console.log('User not found with the specified uid.')
-        }
-      } catch (error) {
-        console.error('Error updating user location:', error)
+        setAllLive(liveTrucks)
+        console.log(allLive)
+        console.log('User location updated successfully!')
+      } else {
+        console.log('User not found with the specified uid.')
       }
+    } catch (error) {
+      console.error('Error updating user location:', error)
     }
-
+  }
+  useEffect(() => {
     handleAllLive()
   }, [])
 
@@ -152,7 +130,6 @@ export default function Home() {
       console.log(error)
     }
   }
-
   const handleRefresh = async () => {
     setRefreshing(true)
     setLocation(null)
@@ -160,6 +137,7 @@ export default function Home() {
     setLong(null)
     setErrorMsg(null)
     setIsLoading(true)
+    handleAllLive()
 
     try {
       let { status } = await Location.requestForegroundPermissionsAsync()
@@ -184,32 +162,28 @@ export default function Home() {
     setRefreshing(false)
   }
 
-  const formatTimestamp = (firebaseTimestamp) => {
-    if (!firebaseTimestamp) {
-      return '' // Return an empty string or handle the null/undefined case as per your requirement
-    }
-
-    const date = new Date(firebaseTimestamp.seconds * 1000) // Convert to milliseconds
-
-    const options = {
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true,
-    }
-
-    const formattedTimestamp = date.toLocaleString('en-US', options)
-
-    return formattedTimestamp
-  }
   return (
     <View style={styles.container}>
       <Text>Welcome {user?.email}!</Text>
-
-      <Button
-        title='Sign Out'
-        style={styles.button}
-        onPress={() => signOut(auth)}
-      />
+      <View
+        style={{
+          width: '80%',
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Button
+          title='Sign Out'
+          buttonStyle={styles.button}
+          onPress={() => signOut(auth)}
+        />
+        <Button
+          title='Refresh'
+          buttonStyle={styles.button}
+          onPress={handleRefresh}
+        />
+      </View>
 
       {refreshing && <Text>Refreshing...</Text>}
 
@@ -237,7 +211,7 @@ export default function Home() {
           </MapView>
           <Button
             title='Nearby Food Trucks'
-            style={styles.button}
+            buttonStyle={styles.buttonnb}
             onPress={() => setModalVisible(!modalVisible)}
           />
         </>
@@ -268,20 +242,40 @@ export default function Home() {
                 <Icon name='close' />
               </Text>
             </Pressable>
-            <View>
+            <ScrollView>
               {allLive?.map((truck, index) => (
                 <>
                   <Text key={index} style={styles.truckNames}>
                     {' '}
-                    {/* <Icon name='circle' /> */}
+                    <Icon name='star-border' />
+                    {/* <Icon name='star' /> */}
                     {truck.truckName}
                   </Text>
-                  <Text style={{ marginLeft: '10%', marginBottom: '20%' }}>
-                    Live since: {formatTimestamp(truck.lastActiveTime)}
+                  {truck.truckNumber && (
+                    <View>
+                      <Text
+                        onPress={() => {
+                          Linking.openURL(`tel:${truck.truckNumber}`)
+                        }}
+                        style={{ marginLeft: 'auto' }}
+                      >
+                        {truck.truckNumber} - Call / Text{' '}
+                        {/* Replace with icons */}
+                      </Text>
+                    </View>
+                  )}
+
+                  <Text
+                    style={{
+                      marginLeft: 'auto',
+                      marginBottom: '20%',
+                    }}
+                  >
+                    {truck.lastActiveTime} - {truck.liveUntil}
                   </Text>
                 </>
               ))}
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -294,15 +288,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     alignItems: 'center',
-    justifyContent: 'center',
   },
   button: {
     marginTop: 10,
+    marginBottom: 20,
   },
-  map: {
-    width: '80%',
-    height: '50%',
-  },
+  buttonnb: { float: 'bottom' },
+  map: {},
   buttonClose: {
     marginLeft: 'auto',
     marginRight: '-5%',
@@ -338,7 +330,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   truckNames: {
-    fontSize: 25,
+    fontSize: 22,
     fontWeight: 'bold',
+    width: '100%',
   },
 })
